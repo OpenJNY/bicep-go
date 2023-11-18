@@ -3,13 +3,15 @@ package lexer
 import (
 	"bicep-go/token"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNextToken(t *testing.T) {
 	input := `resource test 'Provider/ResourceType@version' = {
 		name: 'test'
-	}
-	`
+	}`
 
 	tests := []struct {
 		expectedType    token.TokenType
@@ -17,27 +19,25 @@ func TestNextToken(t *testing.T) {
 	}{
 		{token.IDENTIFIER, "resource"},
 		{token.IDENTIFIER, "test"},
-		{token.STRINGCOMPLETE, "'Provider/ResourceType@version'"},
+		{token.STRING_COMPLETE, "'Provider/ResourceType@version'"},
 		{token.ASSIGNMENT, "="},
-		{token.LEFTBRACE, "{"},
+		{token.LEFT_BRACE, "{"},
+		{token.NEW_LINE, "\\n"},
 		{token.IDENTIFIER, "name"},
 		{token.COLON, ":"},
-		{token.STRINGCOMPLETE, "'test'"},
-		{token.RIGHTBRACE, "}"},
+		{token.STRING_COMPLETE, "'test'"},
+		{token.NEW_LINE, "\\n"},
+		{token.RIGHT_BRACE, "}"},
+		{token.NEW_LINE, "\\n"},
 	}
 
 	lexer := New(input)
+	lexer.Lex()
+	tokens := lexer.GetTokens()
+
+	assert.Equal(t, len(tests), len(tokens))
 	for i, tt := range tests {
-		tok := lexer.NextToken()
-
-		if tok.Type != tt.expectedType {
-			t.Fatalf("tests[%d] - tokentype wrong. expected=%q, got=%q",
-				i, tt.expectedType, tok.Type)
-		}
-
-		if tok.Literal != tt.expectedLiteral {
-			t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q",
-				i, tt.expectedLiteral, tok.Literal)
-		}
+		require.Equal(t, tokens[i].Type, tt.expectedType)
+		require.Equal(t, tokens[i].Literal, tt.expectedLiteral)
 	}
 }

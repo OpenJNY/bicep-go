@@ -2,7 +2,6 @@ package repl
 
 import (
 	"bicep-go/lexer"
-	"bicep-go/token"
 	"bufio"
 	"fmt"
 	"io"
@@ -22,9 +21,10 @@ func Start(in io.Reader, out io.Writer) {
 
 		line := scanner.Text()
 		l := lexer.New(line)
+		l.Lex()
 
-		for tok := l.NextToken(); tok.Type != token.EOF; tok = l.NextToken() {
-			fmt.Printf("%+v\n", tok)
+		for _, tok := range l.GetTokens() {
+			fmt.Printf("%+v \n", tok.ToString())
 		}
 	}
 }

@@ -1,0 +1,10 @@
+package syntax
+
+type CommentStickiness int
+
+const (
+	COMMENT_STICKINESS_NONE CommentStickiness = iota
+	COMMENT_STICKINESS_LEADING
+	COMMENT_STICKINESS_TRAILING
+	COMMENT_STICKINESS_BIDRECTIONAL
+)
