@@ -22,19 +22,19 @@ const (
 
 type Lexer struct {
 	textWindow    *TextWindow
-	tokens        []token.Token
+	tokens        []*token.Token
 	templateStack *util.Stack[token.TokenType]
 }
 
 func New(input string) *Lexer {
 	return &Lexer{
 		textWindow:    NewTextWindow(input),
-		tokens:        []token.Token{},
+		tokens:        []*token.Token{},
 		templateStack: util.NewStack[token.TokenType](),
 	}
 }
 
-func (l *Lexer) GetTokens() []token.Token {
+func (l *Lexer) GetTokens() []*token.Token {
 	return l.tokens
 }
 
@@ -44,12 +44,12 @@ func (l *Lexer) Lex() {
 	}
 
 	// make sure the last token is EOF
-	if len(l.tokens) == 0 || l.tokens[len(l.tokens)-1].Type != token.END_OF_FILE {
+	if len(l.tokens) == 0 || l.tokens[len(l.tokens)-1].Type != token.TokenTypeEndOfFile {
 		l.LexToken()
 	}
 }
 
-func (l *Lexer) LexToken() token.Token {
+func (l *Lexer) LexToken() {
 	l.textWindow.Reset()
 	leadingTrivia := l.scanLeadingTrivia()
 
@@ -61,30 +61,29 @@ func (l *Lexer) LexToken() token.Token {
 	includeComments := syntax.GetCommentStickiness(tokenType) >= syntax.COMMENT_STICKINESS_TRAILING
 	trailingTrivia := l.scanTrailingTrivia(includeComments)
 
-	token := token.New(tokenType, tokenText, leadingTrivia, trailingTrivia)
+	token := token.NewToken(tokenType, tokenText, leadingTrivia, trailingTrivia)
 	l.tokens = append(l.tokens, token)
-	return token
 }
 
 var uniqueSingleCharacterTokens = map[byte]token.TokenType{
-	'(': token.LEFT_PAREN,
-	')': token.RIGHT_PAREN,
-	'[': token.LEFT_SQUARE,
-	']': token.RIGHT_SQUARE,
-	'@': token.AT,
-	',': token.COMMA,
-	'.': token.DOT,
-	';': token.SEMICOLON,
-	'+': token.PLUS,
-	'-': token.MINUS,
-	'%': token.MODULO,
-	'*': token.ASTERISK,
-	'/': token.SLASH,
+	'(': token.TokenTypeLeftParen,
+	')': token.TokenTypeRightParen,
+	'[': token.TokenTypeLeftSquare,
+	']': token.TokenTypeRightSquare,
+	'@': token.TokenTypeAt,
+	',': token.TokenTypeComma,
+	'.': token.TokenTypeDot,
+	';': token.TokenTypeSemicolon,
+	'+': token.TokenTypePlus,
+	'-': token.TokenTypeMinus,
+	'%': token.TokenTypeModulo,
+	'*': token.TokenTypeAsterisk,
+	'/': token.TokenTypeSlash,
 }
 
 func (l *Lexer) scanToken() token.TokenType {
 	if l.textWindow.IsAtEnd() {
-		return token.END_OF_FILE
+		return token.TokenTypeEndOfFile
 	}
 
 	nextChar := l.textWindow.Peek()
@@ -98,110 +97,110 @@ func (l *Lexer) scanToken() token.TokenType {
 	switch nextChar {
 	case '{':
 		if l.templateStack.Any() {
-			l.templateStack.Push(token.LEFT_BRACE)
+			l.templateStack.Push(token.TokenTypeLeftBrace)
 		}
-		return token.LEFT_BRACE
+		return token.TokenTypeLeftBrace
 	case '}':
 		if l.templateStack.Any() {
 			prevTemplateToken, _ := l.templateStack.Peek()
-			if prevTemplateToken == token.LEFT_BRACE {
+			if prevTemplateToken == token.TokenTypeLeftBrace {
 				stringToken := l.scanStringSegment(false)
-				if stringToken == token.STRING_RIGHT_PIECE {
+				if stringToken == token.TokenTypeRightBrace {
 					l.templateStack.Pop()
 				}
 				return stringToken
 			}
 		}
-		return token.RIGHT_BRACE
+		return token.TokenTypeRightBrace
 	case '?':
 		if !l.textWindow.IsAtEnd() && l.textWindow.Peek() == '?' {
 			l.textWindow.Advance()
-			return token.DOUBLE_QUESTION
+			return token.TokenTypeDoubleQuestion
 		}
-		return token.QUESTION
+		return token.TokenTypeQuestion
 	case ':':
 		if !l.textWindow.IsAtEnd() && l.textWindow.Peek() == ':' {
 			l.textWindow.Advance()
-			return token.DOUBLE_COLON
+			return token.TokenTypeDoubleColon
 		}
-		return token.COLON
+		return token.TokenTypeColon
 	case '!':
 		if !l.textWindow.IsAtEnd() {
 			if l.textWindow.Peek() == '=' {
 				l.textWindow.Advance()
-				return token.NOT_EQUALS
+				return token.TokenTypeNotEquals
 			} else if l.textWindow.Peek() == '~' {
 				l.textWindow.Advance()
-				return token.NOT_EQUALS_INSENSITIVE
+				return token.TokenTypeNotEqualsInsensitive
 			}
 		}
-		return token.EXCLAMATION
+		return token.TokenTypeExclamation
 	case '<':
 		if !l.textWindow.IsAtEnd() && l.textWindow.Peek() == '=' {
 			l.textWindow.Advance()
-			return token.LESS_THAN_OR_EQUAL
+			return token.TokenTypeLessThanOrEqual
 		}
-		return token.LESS_THAN
+		return token.TokenTypeLessThan
 	case '>':
 		if !l.textWindow.IsAtEnd() && l.textWindow.Peek() == '=' {
 			l.textWindow.Advance()
-			return token.GREATER_THAN_OR_EQUAL
+			return token.TokenTypeGreaterThanOrEqual
 		}
-		return token.GREATER_THAN
+		return token.TokenTypeGreaterThan
 	case '=':
 		if !l.textWindow.IsAtEnd() {
 			switch l.textWindow.Peek() {
 			case '=':
 				l.textWindow.Advance()
-				return token.EQUALS
+				return token.TokenTypeEquals
 			case '~':
 				l.textWindow.Advance()
-				return token.EQUALS_INSENSITIVE
+				return token.TokenTypeEqualsInsensitive
 			case '>':
 				l.textWindow.Advance()
-				return token.ARROW
+				return token.TokenTypeArrow
 			}
 		}
-		return token.ASSIGNMENT
+		return token.TokenTypeAssignment
 	case '&':
 		if !l.textWindow.IsAtEnd() && l.textWindow.Peek() == '&' {
 			l.textWindow.Advance()
-			return token.LOGICAL_AND
+			return token.TokenTypeLogicalAnd
 		}
-		return token.UNRECOGNIZED
+		return token.TokenTypeUnrecognized
 	case '|':
 		if !l.textWindow.IsAtEnd() && l.textWindow.Peek() == '|' {
 			l.textWindow.Advance()
-			return token.LOGICAL_OR
+			return token.TokenTypeLogicalOr
 		}
-		return token.PIPE
+		return token.TokenTypePipe
 	case '\'':
 		if l.textWindow.Peek() == '\'' && l.textWindow.PeekAt(1) == '\'' {
 			l.textWindow.AdvanceTo(2)
 			return l.scanMultilineString()
 		}
-		tok := l.scanStringSegment(true)
-		if tok == token.STRING_LEFT_PIECE {
-			l.templateStack.Push(tok)
+		tokenType := l.scanStringSegment(true)
+		if tokenType == token.TokenTypeStringLeftPiece {
+			l.templateStack.Push(tokenType)
 		}
-		return tok
+		return tokenType
 	default:
 		if isNewLine(nextChar) {
 			if l.templateStack.Any() {
 				// need to re-check the newline token on next pass
 				l.textWindow.Rewind()
 				l.templateStack = util.NewStack[token.TokenType]()
-				return token.STRING_RIGHT_PIECE
+				return token.TokenTypeStringRightPiece
 			}
 			l.scanNewLine()
-			return token.NEW_LINE
+			return token.TokenTypeNewLine
 		} else if isDigit(nextChar) {
 			l.scanNumber()
-			return token.INTEGER
+			return token.TokenTypeInteger
 		} else if isIdentifierStart(nextChar) {
 			return l.scanIdentifier()
 		} else {
-			return token.UNRECOGNIZED
+			return token.TokenTypeUnrecognized
 		}
 	}
 }
@@ -212,11 +211,11 @@ func (l *Lexer) scanIdentifier() token.TokenType {
 			identifier := l.textWindow.GetText()
 
 			var keywords = map[string]token.TokenType{
-				"true":  token.TRUE_KEYWORD,
-				"false": token.FALSE_KEYWORD,
-				"null":  token.NULL_KEYWORD,
-				"with":  token.WITH_KEYWORD,
-				"as":    token.AS_KEYWORD,
+				"true":  token.TokenTypeTrueKeyword,
+				"false": token.TokenTypeFalseKeyword,
+				"null":  token.TokenTypeNullKeyword,
+				"with":  token.TokenTypeWithKeyword,
+				"as":    token.TokenTypeAsKeyword,
 			}
 			if tokenType, ok := keywords[identifier]; ok {
 				return tokenType
@@ -225,7 +224,7 @@ func (l *Lexer) scanIdentifier() token.TokenType {
 			// identifier too long
 			// if len(identifier) > common.MAX_IDENTIFIER_LENGTH {
 			// }
-			return token.IDENTIFIER
+			return token.TokenTypeIdentifier
 		}
 		l.textWindow.Advance()
 	}
@@ -235,18 +234,18 @@ func (l *Lexer) scanStringSegment(isAtStartOfString bool) token.TokenType {
 	for {
 		if l.textWindow.IsAtEnd() {
 			if isAtStartOfString {
-				return token.STRING_COMPLETE
+				return token.TokenTypeStringComplete
 			} else {
-				return token.STRING_RIGHT_PIECE
+				return token.TokenTypeStringRightPiece
 			}
 		}
 
 		nextChar := l.textWindow.Peek()
 		if isNewLine(nextChar) {
 			if isAtStartOfString {
-				return token.STRING_COMPLETE
+				return token.TokenTypeStringComplete
 			} else {
-				return token.STRING_RIGHT_PIECE
+				return token.TokenTypeStringRightPiece
 			}
 		}
 
@@ -255,18 +254,18 @@ func (l *Lexer) scanStringSegment(isAtStartOfString bool) token.TokenType {
 
 		if nextChar == '\'' {
 			if isAtStartOfString {
-				return token.STRING_COMPLETE
+				return token.TokenTypeStringComplete
 			} else {
-				return token.STRING_RIGHT_PIECE
+				return token.TokenTypeStringRightPiece
 			}
 		}
 
 		if nextChar == '&' && !l.textWindow.IsAtEnd() && l.textWindow.Peek() == '{' {
 			l.textWindow.Advance()
 			if isAtStartOfString {
-				return token.STRING_LEFT_PIECE
+				return token.TokenTypeStringLeftPiece
 			} else {
-				return token.STRING_MIDDLE_PIECE
+				return token.TokenTypeStringMiddlePiece
 			}
 		}
 
@@ -279,9 +278,9 @@ func (l *Lexer) scanStringSegment(isAtStartOfString bool) token.TokenType {
 		if l.textWindow.IsAtEnd() {
 			// UnterminatedStringEscapeSequenceAtEof
 			if isAtStartOfString {
-				return token.STRING_COMPLETE
+				return token.TokenTypeStringComplete
 			} else {
-				return token.STRING_RIGHT_PIECE
+				return token.TokenTypeStringRightPiece
 			}
 		}
 
@@ -352,7 +351,7 @@ func (l *Lexer) scanMultilineString() token.TokenType {
 				for l.textWindow.Peek() == '\'' {
 					l.textWindow.Advance()
 				}
-				return token.MULTILINE_STRING
+				return token.TokenTypeMultilineString
 			}
 		default:
 			successiveQuotes = 0
@@ -361,19 +360,19 @@ func (l *Lexer) scanMultilineString() token.TokenType {
 	}
 
 	// unterminated multi-line string
-	return token.MULTILINE_STRING
+	return token.TokenTypeMultilineString
 }
 
-func (l *Lexer) scanLeadingTrivia() []token.Trivia {
-	var trivias []token.Trivia
+func (l *Lexer) scanLeadingTrivia() []*token.Trivia {
+	var trivias []*token.Trivia
 
 	for {
 		if isWhitespace(l.textWindow.Peek()) {
-			trivias = append(trivias, *l.scanWhitespace())
+			trivias = append(trivias, l.scanWhitespace())
 		} else if l.textWindow.Peek() == '/' && l.textWindow.PeekAt(1) == '/' {
-			trivias = append(trivias, *l.scanSingleLineComment())
+			trivias = append(trivias, l.scanSingleLineComment())
 		} else if l.textWindow.Peek() == '/' && l.textWindow.PeekAt(1) == '*' {
-			trivias = append(trivias, *l.scanMultiLineComment())
+			trivias = append(trivias, l.scanMultiLineComment())
 		} else {
 			break
 		}
@@ -382,19 +381,19 @@ func (l *Lexer) scanLeadingTrivia() []token.Trivia {
 	return trivias
 }
 
-func (l *Lexer) scanTrailingTrivia(includeComments bool) []token.Trivia {
-	var trivias []token.Trivia
+func (l *Lexer) scanTrailingTrivia(includeComments bool) []*token.Trivia {
+	var trivias []*token.Trivia
 
 	for {
 		next := l.textWindow.Peek()
 		if isWhitespace(next) {
-			trivias = append(trivias, *l.scanWhitespace())
+			trivias = append(trivias, l.scanWhitespace())
 		} else if includeComments && next == '/' {
 			nextNext := l.textWindow.PeekAt(1)
 			if nextNext == '/' {
-				trivias = append(trivias, *l.scanSingleLineComment())
+				trivias = append(trivias, l.scanSingleLineComment())
 			} else if nextNext == '*' {
-				trivias = append(trivias, *l.scanMultiLineComment())
+				trivias = append(trivias, l.scanMultiLineComment())
 			} else {
 				break
 			}
